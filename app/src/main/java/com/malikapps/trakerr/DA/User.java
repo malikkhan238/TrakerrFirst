@@ -125,7 +125,7 @@ public class User extends BaseTable {
                         {
                             query.or();
                         }
-                        issue here is contact.phone is null,correct this logic !!!
+                        issue here is contact.phone is null on actual devices,correct this logic !!!
                         String phone = contact.phone.replaceAll("\\s+", "").replaceAll("\\-", "").replace("(", "").replace(")", "");
                         if(phone.length() > 10)
                             phone = phone.substring(phone.length()-10);
