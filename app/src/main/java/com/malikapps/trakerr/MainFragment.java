@@ -14,6 +14,7 @@ import com.malikapps.trakerr.DA.Group;
 import com.malikapps.trakerr.DA.User;
 
 import java.util.ArrayList;
+import java.util.Date;
 
 /**
  * Created by abdulmalik_khan on 28/07/15.
@@ -67,7 +68,11 @@ public class MainFragment extends Fragment {
     public void onResume() {
         super.onResume();
         if(((MainActivity)getActivity()).userId != "") {
-            Group.getGroupsByUser(this, ((MainActivity) getActivity()).userId);
+            if(((MainActivity)getActivity()).shouldUpdate())
+            {
+                Group.getGroupsByUser(this, ((MainActivity) getActivity()).userId);
+                ((MainActivity)getActivity()).syncTime = new Date();
+            }
         }
     }
 

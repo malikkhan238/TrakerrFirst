@@ -50,11 +50,31 @@ public class Group extends BaseTable {
                 if (exception == null) {
                     // Insert succeeded
                     error = SUCCESS;
+
+                    GroupUser newGroupUser = new GroupUser();
+                    newGroupUser.Group_Id = entity.Id;
+                    newGroupUser.User_Id = entity.AdminUser_Id;
+                    try {
+                        getMobileServiceClient(context).getTable(GroupUser.class).insert(newGroupUser, new TableOperationCallback<GroupUser>() {
+                            public void onCompleted(GroupUser entity, Exception exception, ServiceFilterResponse response) {
+                                if (exception == null) {
+                                    // Insert succeeded
+                                    error = SUCCESS;
+                                    ((MainActivity)context).showProgressDialog(false);
+                                } else {
+                                    // Insert failed
+                                    error = exception.getMessage();
+                                    //retval = false;
+                                }
+                            }
+                        });
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    }
+
                     MainActivity ma = (MainActivity)context;
                     if (null != ma.currentUser.adminForGroups) {
-                        // TODO: new strategy is not to refresh complete activity, but to update only the relevant components
-                        //ma.refresh();
-                        ma.showProgressDialog(false);
+                        //ma.showProgressDialog(false);
                         TextView textView = (TextView) ma.findViewById(R.id.textGroupName);
                         textView.setText("");
                         ma.currentUser.adminForGroups.add(Group.this);
@@ -86,7 +106,7 @@ public class Group extends BaseTable {
                     MobileServiceTable<GroupUser> mGroupUserTable = mobileServiceClient.getTable(GroupUser.class);
                     final List<GroupUser> groupMembers = mGroupUserTable.where().field("user_id").eq(val(userId)).execute().get();
 
-                    if(null != groupMembers && !groupMembers.isEmpty()) {
+                    if(null != groupMembers) {
                         ExecutableQuery<Group> query = mGroupTable.where();
                         boolean first = true;
                         for (GroupUser groupUser : groupMembers) {
@@ -96,8 +116,9 @@ public class Group extends BaseTable {
                                 query.or();
                             }
                             query.field("id").eq(val(groupUser.Group_Id));
+                            query.or();
                         }
-
+                        query.field("AdminUser_id").eq(val(userId));
                         final List<Group> applicableGroup = query.execute().get();
                         return new ArrayList<Group>(applicableGroup);
                     }

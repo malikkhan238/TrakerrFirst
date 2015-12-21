@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.widget.Toast;
@@ -18,11 +19,15 @@ import com.microsoft.windowsazure.mobileservices.http.ServiceFilterResponse;
 import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
 import com.microsoft.windowsazure.mobileservices.table.TableOperationCallback;
 import com.microsoft.windowsazure.mobileservices.table.query.ExecutableQuery;
+
 import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.concurrent.ExecutionException;
 
 import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperations.add;
@@ -56,13 +61,15 @@ public class User extends BaseTable {
     public List<User> applicableUsers;
 
     private boolean isSelected;
-    public boolean getSelected () {
+
+    public boolean getSelected() {
         return isSelected;
     }
-    public void setSelected (boolean value)
-    {
+
+    public void setSelected(boolean value) {
         this.isSelected = value;
     }
+
     public static void UpdateAll(final Context context, final String id, final String last_Location) {
         User.update(context, id, last_Location);
 
@@ -109,31 +116,42 @@ public class User extends BaseTable {
                     user.Last_Location = last_Location;
                     user.Last_Time = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date()).toString();
                     ma.currentUser = user;
-                    mUserTable.update(user).get();
+                    mUserTable.update(user);
 
                     // Set all Contacts available to be added in any of the group, use this whenever user need to add a member
                     List<ContactsProvider.Contact> contacts = ma.contactsProvider.getContacts();
                     //User.getAllUsersInContacts(this, contacts);
                     ExecutableQuery<User> query = mUserTable.where();
                     boolean first = true;
+                    int parameterCount = 0;
+                    final List<User> applicableUsers = new ArrayList<>();
                     for (ContactsProvider.Contact contact : contacts) {
-                        if(first)
-                        {
-                            first = false;
+                        if (null != contact && null != contact.phone) {
+                            if (first) {
+                                first = false;
+                            } else {
+                                query.or();
+                            }
+
+                            //issue here is contact.phone is null on actual devices,correct this logic !!!
+                            String phone = contact.phone.replaceAll("\\s+", "").replaceAll("\\-", "").replace("(", "").replace(")", "");
+                            if (phone.length() > 10)
+                                phone = phone.substring(phone.length() - 10);
+                            //query.field("phone").eq(val(phone));
+                            query.endsWith("phone", phone);
+
+                            ++parameterCount;
+                            if(parameterCount % 20 == 0)
+                            {
+                                applicableUsers.addAll(query.execute().get());
+                                first = true;
+                                query = mUserTable.where();
+                            }
+                            //    break;
                         }
-                        else
-                        {
-                            query.or();
-                        }
-                        issue here is contact.phone is null on actual devices,correct this logic !!!
-                        String phone = contact.phone.replaceAll("\\s+", "").replaceAll("\\-", "").replace("(", "").replace(")", "");
-                        if(phone.length() > 10)
-                            phone = phone.substring(phone.length()-10);
-                        //query.field("phone").eq(val(phone));
-                        query.endsWith("phone", phone);
                     }
 
-                    final List<User> applicableUsers = query.execute().get();
+                    applicableUsers.addAll(query.execute().get());
                     ma.currentUser.applicableUsers = applicableUsers;
 
 
@@ -142,7 +160,6 @@ public class User extends BaseTable {
                     MobileServiceList<Group> groups = mGroupTable.where().field("adminUser_id").eq(val(user.Id)).select("id", "name").execute().get();
                     //final List<User> results = mUserTable.where().field(field).eq(val(value)).execute().get();
                     //((MainActivity) context).currentUser = results.get(0);
-
 
 
                     if (null != groups && null != context && null != ((MainActivity) context).currentUser) {
@@ -158,7 +175,7 @@ public class User extends BaseTable {
                         @Override
                         public void run() {
                             Toast.makeText(context, "Welcome " + ((MainActivity) context).currentUser.Name, Toast.LENGTH_LONG).show();
-                         }
+                        }
                     });
                 } catch (final Exception e) {
                     //createAndShowDialogFromTask(e, "Error");
@@ -181,7 +198,7 @@ public class User extends BaseTable {
                     MobileServiceTable<GroupUser> mGroupUserTable = mobileServiceClient.getTable(GroupUser.class);
                     final List<GroupUser> groupMembers = mGroupUserTable.where().field("group_id").eq(val(groupIdValue)).execute().get();
 
-                    if(null != groupMembers && !groupMembers.isEmpty()) {
+                    if (null != groupMembers && !groupMembers.isEmpty()) {
                         ExecutableQuery<User> query = mUserTable.where();
                         boolean first = true;
                         for (GroupUser groupUser : groupMembers) {
@@ -218,11 +235,10 @@ public class User extends BaseTable {
             @Override
             protected void onPostExecute(ArrayList<User> users) {
                 super.onPostExecute(users);
-                if(fragment instanceof AddEditGroupFragment) {
-                    ((AddEditGroupFragment)fragment).updateGroupMembers(users);
-                }
-                else if (fragment instanceof MainFragment) {
-                    ((MainFragment)fragment).showUsers(users);
+                if (fragment instanceof AddEditGroupFragment) {
+                    ((AddEditGroupFragment) fragment).updateGroupMembers(users);
+                } else if (fragment instanceof MainFragment) {
+                    ((MainFragment) fragment).showUsers(users);
                 }
                 ((MainActivity) fragment.getActivity()).showProgressDialog(false);
             }
@@ -298,7 +314,7 @@ public class User extends BaseTable {
 
     public boolean insert(final Context context, final LoginDialogFragment.LoginDialogListener dialogListener, final DialogFragment dialog) throws MalformedURLException {
         boolean retval = true;
-        ((MainActivity)context).showProgressDialog(true);
+        ((MainActivity) context).showProgressDialog(true);
         setLocatoin(context);
         getMobileServiceClient(context).getTable(User.class).insert(this, new TableOperationCallback<User>() {
             public void onCompleted(User entity, Exception exception, ServiceFilterResponse response) {
@@ -306,7 +322,7 @@ public class User extends BaseTable {
                     // Insert succeeded
                     error = SUCCESS;
                     MyPreferances.setNamePhone(context, entity.Name, entity.Phone, entity.Id);
-                    ((MainActivity)context).showProgressDialog(false);
+                    ((MainActivity) context).showProgressDialog(false);
 
                 } else {
                     // Insert failed

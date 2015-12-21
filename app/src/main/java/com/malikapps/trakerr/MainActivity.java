@@ -18,6 +18,7 @@ import com.malikapps.trakerr.DA.Group;
 import com.malikapps.trakerr.DA.MyPreferances;
 import com.malikapps.trakerr.DA.User;
 
+import java.util.Date;
 import java.util.List;
 
 
@@ -33,6 +34,7 @@ public class MainActivity extends ActionBarActivity
     public User currentUser = new User();
     public Group currentGroup = new Group();
     String userId = "";
+    Date syncTime = new Date(0);
     /**
      * Fragment managing the behaviors, interactions and presentation of the navigation drawer.
      */
@@ -234,6 +236,19 @@ public class MainActivity extends ActionBarActivity
     public void refresh() {
         finish();
         startActivity(getIntent());
+    }
+
+    public boolean shouldUpdate()
+    {
+        final int MIN = 30;
+        boolean returnValue = false;
+        long diffInMilliSec = new Date().getTime() - syncTime.getTime();
+        if (diffInMilliSec > 1000 * 60 * MIN); // if MIN minutes passed or not
+        {
+            syncTime = new Date();
+            returnValue = true;
+        }
+        return returnValue;
     }
     /*
     boolean started = false;
